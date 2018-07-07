@@ -1,0 +1,23 @@
+packages:
+- '.'
+- location:
+    git: https://github.com/IvanMalison/github.git
+    commit: af73bd9e193b045a25bccf86061858db21091508
+  extra-dep: true
+extra-deps:
+- status-notifier-item-0.3.0.0
+- dbus-1.0.1
+- dbus-hslogger-0.1.0.1
+- spool-0.1
+- gi-dbusmenu-0.4.1
+- gi-gio-2.0.18
+resolver: lts-11.16
+nix:
+  packages:
+    - libdbusmenu-glib
+    - gobjectIntrospection
+    - libdbusmenu-glib
+    - libxml2
+    - pkgconfig
+    - gcc
+    - zlib

@@ -1,0 +1,53 @@
+name:                notifications-tray-icon
+version:             0.1.0.0
+github:              "IvanMalison/notifications-tray-icon"
+license:             BSD3
+author:              "Ivan Malison"
+maintainer:          "IvanMalison@gmail.com"
+copyright:           "2018 Ivan Malison"
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Development
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/IvanMalison/notifications-tray-icon#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+
+library:
+  source-dirs: src
+  dependencies:
+    - aeson
+    - bytestring
+    - containers
+    - dbus
+    - gi-dbusmenu
+    - gi-gio
+    - gi-glib
+    - github
+    - hslogger
+    - http-conduit
+    - status-notifier-item >= 0.3.0.0
+    - text
+    - transformers >= 0.3.0.0
+    - vector
+
+executables:
+  notifications-tray-icon:
+    main:                Main.hs
+    source-dirs:         app
+    ghc-options:
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+    dependencies:
+      - notifications-tray-icon
+      - optparse-applicative
