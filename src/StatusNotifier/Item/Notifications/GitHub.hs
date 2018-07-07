@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module StatusNotifier.Item.GitHub where
+module StatusNotifier.Item.Notifications.GitHub where
 
 import           Control.Concurrent
 import           Control.Concurrent.MVar as MV

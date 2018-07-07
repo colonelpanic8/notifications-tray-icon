@@ -2,15 +2,17 @@ module Main where
 
 import Control.Monad
 
-import StatusNotifier.Item.NotificationOverlay
+import StatusNotifier.Item.Notifications.OverlayIcon
 
-params = NotificationOverlayItemParams
+params = OverlayIconParams
   { iconName = "github"
-  , itemDBusName = "org.Github.Notifications"
-  , getOverlayName = undefined
+  , iconPath = "/StatusNotifierItem"
+  , iconDBusName = "org.Github.Notifications"
+  , getOverlayName = const $ return "steam"
+  , listenForNotifications = sampleNotificationListener
   }
 
 main :: IO ()
 main = do
-  buildNotificationOverlayItem params
+  buildOverlayIcon params
   void getChar
