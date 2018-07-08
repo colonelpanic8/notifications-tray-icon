@@ -43,10 +43,10 @@ defaultGitHubConfig auth = GitHubConfig
   , ghRefreshSeconds = 20
   }
 
-githubNotificationsNew config@GitHubConfig
-                         { ghAuth = auth
-                         , ghRefreshSeconds = refreshSeconds
-                         } update = do
+githubUpdaterNew config@GitHubConfig
+                   { ghAuth = auth
+                   , ghRefreshSeconds = refreshSeconds
+                   } update = do
 
   let getNotificationsFromGitHub = getNotifications auth
       logAndShow :: (Show v) => Priority -> String -> v -> IO ()
@@ -54,7 +54,6 @@ githubNotificationsNew config@GitHubConfig
         ghLog level $ printf message (show value)
 
   notificationsVar <- MV.newMVar V.empty
-  -- TODO: indicate error somehow
   errorVar <- MV.newMVar Nothing
 
   let openNotificationsHTML = openURL "https://github.com/notifications"
@@ -83,8 +82,10 @@ githubNotificationsNew config@GitHubConfig
         let newSortedIds = sort $ map notificationId $ V.toList newNotifications
             oldSortedIds = sort $ map notificationId $ V.toList currentNotifications
         in return (newNotifications, newSortedIds /= oldSortedIds)
-      updateError error =
-        MV.modifyMVar_ errorVar (const return error) >> return False
+      updateError error = do
+        MV.modifyMVar_ errorVar (const return error)
+        ghLog ERROR $ printf "Error retrieving notifications %s" $ show error
+        return False
       updateVariables =
         getNotificationsFromGitHub >>=
         either updateError (MV.modifyMVar notificationsVar . updateNotifications)

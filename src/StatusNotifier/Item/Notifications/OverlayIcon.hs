@@ -18,6 +18,7 @@ import qualified GI.Gio as Gio
 import qualified StatusNotifier.Item.Client as I
 import           StatusNotifier.Item.Notifications.GitHub
 import qualified StatusNotifier.Watcher.Client as W
+import           System.Log.Logger
 
 type UpdateNotifications = Int -> Menuitem -> IO ()
 
@@ -26,15 +27,17 @@ data OverlayIconParams = OverlayIconParams
   , iconPath :: String
   , iconDBusName :: String
   , getOverlayName :: Int -> IO T.Text
-  , listenForNotifications :: UpdateNotifications -> IO ()
+  , runUpdater :: UpdateNotifications -> IO ()
   }
+
+overlayLog = logM "StatusNotifier.Item.Notifications.OverlayIcon"
 
 buildOverlayIcon OverlayIconParams
                    { iconName = name
                    , iconPath = path
                    , iconDBusName = dbusName
                    , getOverlayName = getOverlayIconName
-                   , listenForNotifications = startNotifications
+                   , runUpdater = startNotifications
                    } = do
   let menuPathString = path ++ "/Menu"
       menuBusString = dbusName ++ ".Menu"
@@ -59,7 +62,7 @@ buildOverlayIcon OverlayIconParams
   let runOnMain action = do
         GLib.mainContextInvokeFull context 4 $ action >> return False
       setRoot newRoot = runOnMain $ do
-          putStrLn "Setting new root"
+          overlayLog DEBUG "Setting new root"
           modifyMVar_ currentRoot $ const $ return newRoot
           serverSetRoot menuServer newRoot
           return False
@@ -91,4 +94,4 @@ buildOverlayIcon OverlayIconParams
   startNotifications updateNotifications
   proxyMenu
 
-  W.registerStatusNotifierItem client dbusName
+  void $ W.registerStatusNotifierItem client dbusName

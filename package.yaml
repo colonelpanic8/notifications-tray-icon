@@ -32,14 +32,14 @@ library:
     - bytestring
     - containers
     - dbus
-    - regex-compat
-    - process
     - gi-dbusmenu
     - gi-gio
     - gi-glib
     - github
     - hslogger
     - http-conduit
+    - process
+    - regex-compat
     - status-notifier-item >= 0.3.0.0
     - text
     - transformers >= 0.3.0.0
@@ -54,5 +54,9 @@ executables:
       - -rtsopts
       - -with-rtsopts=-N
     dependencies:
+      - bytestring
+      - github
+      - haskeline
       - notifications-tray-icon
       - optparse-applicative
+      - transformers

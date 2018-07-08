@@ -41,7 +41,6 @@ proxyAll client busName pathToProxy registrationPath = either print return =<< (
   where runInterface interface = do
            let proxyOptions = ProxyOptions client busName pathToProxy $
                               I.interfaceName interface
-           print interface
            buildAndRegisterInterface proxyOptions interface registrationPath
 
 buildAndRegisterInterface :: ProxyOptions -> I.Interface -> ObjectPath -> IO ()
