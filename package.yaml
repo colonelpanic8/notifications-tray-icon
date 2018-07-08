@@ -29,6 +29,7 @@ library:
   source-dirs: src
   dependencies:
     - aeson
+    - async
     - bytestring
     - containers
     - dbus
@@ -57,6 +58,7 @@ executables:
       - bytestring
       - github
       - haskeline
+      - hslogger
       - notifications-tray-icon
       - optparse-applicative
       - transformers

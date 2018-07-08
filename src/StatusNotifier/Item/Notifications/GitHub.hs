@@ -2,6 +2,7 @@ module StatusNotifier.Item.Notifications.GitHub where
 
 import           Control.Arrow
 import           Control.Concurrent
+import           Control.Concurrent.Async
 import           Control.Concurrent.MVar as MV
 import           Control.Monad
 import           Control.Monad.IO.Class
@@ -10,6 +11,7 @@ import           Data.Aeson
 import           Data.Aeson.Types
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy as LBS
+import           Data.Either
 import           Data.Int
 import           Data.List
 import qualified Data.Map as M
@@ -55,8 +57,11 @@ githubUpdaterNew config@GitHubConfig
 
   notificationsVar <- MV.newMVar V.empty
   errorVar <- MV.newMVar Nothing
+  forceRefreshVar <- MV.newEmptyMVar
 
-  let openNotificationsHTML = openURL "https://github.com/notifications"
+  let forceRefresh = void $ MV.tryPutMVar forceRefreshVar ()
+      delayedRefresh = void $ forkIO $ threadDelay 1000000 >> forceRefresh
+      openNotificationsHTML = openURL "https://github.com/notifications"
       markAllRead = markNotificationsAsRead auth
       getCurrentNotifications = MV.readMVar notificationsVar
       buildMenu = do
@@ -70,12 +75,16 @@ githubUpdaterNew config@GitHubConfig
         menuitemChildAppend root separatorItem
 
         markAllReadItem <- makeMenuItemWithLabel "Mark all as read"
-        onMenuitemItemActivated markAllReadItem $ const $ void markAllRead
+        onMenuitemItemActivated markAllReadItem $ const $ markAllRead >> delayedRefresh
         menuitemChildAppend root markAllReadItem
 
         viewItem <- makeMenuItemWithLabel "View notifications"
         onMenuitemItemActivated viewItem $ const $ void $ openNotificationsHTML
         menuitemChildAppend root viewItem
+
+        refreshItem <- makeMenuItemWithLabel "Refresh"
+        onMenuitemItemActivated refreshItem $ const $ forceRefresh
+        menuitemChildAppend root refreshItem
 
         return root
       updateNotifications newNotifications currentNotifications =
@@ -89,14 +98,21 @@ githubUpdaterNew config@GitHubConfig
       updateVariables =
         getNotificationsFromGitHub >>=
         either updateError (MV.modifyMVar notificationsVar . updateNotifications)
+      doUpdate = do
+        newRoot <- buildMenu
+        notificationsCount <- V.length <$> getCurrentNotifications
+        update notificationsCount newRoot
 
+  doUpdate
   void $ forkIO $ forever $ do
+    forced <-
+      isRight <$> race (threadDelay (floor $ refreshSeconds * 1000000))
+                       (takeMVar forceRefreshVar)
+    ghLog DEBUG "Refreshing notifications"
     menuNeedsRebuild <- updateVariables
-    when menuNeedsRebuild $ do
-      newRoot <- buildMenu
-      notificationsCount <- V.length <$> getCurrentNotifications
-      update notificationsCount newRoot
-    threadDelay (floor $ refreshSeconds * 1000000)
+    ghLog DEBUG $ printf "Rebuild needed: %s, force: %s"
+                         (show menuNeedsRebuild) (show forced)
+    when (forced || menuNeedsRebuild) doUpdate
 
 makeNotificationItem :: GitHubConfig -> Notification -> IO Menuitem
 makeNotificationItem GitHubConfig { ghAuth = auth }

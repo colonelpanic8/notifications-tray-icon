@@ -12,6 +12,7 @@ import           StatusNotifier.Item.Notifications.GitHub
 import           StatusNotifier.Item.Notifications.OverlayIcon
 import           System.Console.Haskeline
 import           Text.Printf
+import           System.Log.Logger
 
 import           Paths_notifications_tray_icon (version)
 
@@ -67,6 +68,15 @@ updaterParser
   =   (fmap githubUpdaterNew <$> githubParser)
   <|> (flag' (return $ const $ return ()) $ long "no-updater")
 
+logParser =
+  option auto
+  (  long "log-level"
+  <> short 'l'
+  <> help "Set the log level"
+  <> metavar "LEVEL"
+  <> value WARNING
+  )
+
 params iconName overlayIconName notifications = OverlayIconParams
   { iconName = "github"
   , iconPath = "/StatusNotifierItem"
@@ -75,10 +85,12 @@ params iconName overlayIconName notifications = OverlayIconParams
   , runUpdater = notifications
   }
 
-startOverlayIcon getUpdater iconName overlayIconName =
+startOverlayIcon getUpdater iconName overlayIconName logLevel = do
+  logger <- getLogger "StatusNotifier.Item.Notifications"
+  saveGlobalLogger $ setLevel logLevel logger
   (params iconName overlayIconName <$> getUpdater) >>= buildOverlayIcon
 
-parser = startOverlayIcon <$> updaterParser <*> iconNameParser <*> overlayIconNameParser
+parser = startOverlayIcon <$> updaterParser <*> iconNameParser <*> overlayIconNameParser <*> logParser
 
 versionOption :: Parser (a -> a)
 versionOption = infoOption
@@ -96,4 +108,4 @@ main = do
          (  fullDesc
          <> progDesc "Run a standalone StatusNotifierItem/AppIndicator tray"
          )
-  void $ forever $ getChar
+  void $ forever $ threadDelay 999999999999999999
