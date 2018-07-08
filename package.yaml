@@ -32,6 +32,8 @@ library:
     - bytestring
     - containers
     - dbus
+    - regex-compat
+    - process
     - gi-dbusmenu
     - gi-gio
     - gi-glib

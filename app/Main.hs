@@ -2,17 +2,19 @@ module Main where
 
 import Control.Monad
 
+import StatusNotifier.Item.Notifications.GitHub
 import StatusNotifier.Item.Notifications.OverlayIcon
 
-params = OverlayIconParams
+params notifications = OverlayIconParams
   { iconName = "github"
   , iconPath = "/StatusNotifierItem"
   , iconDBusName = "org.Github.Notifications"
-  , getOverlayName = const $ return "steam"
-  , listenForNotifications = sampleNotificationListener
+  , getOverlayName = \count -> return $ if count > 0 then "steam" else ""
+  , listenForNotifications = notifications
   }
 
 main :: IO ()
 main = do
-  buildOverlayIcon params
+  auth <- githubAuthFromPass "github-token"
+  buildOverlayIcon $ params $ githubNotificationsNew $ defaultGitHubConfig auth
   void getChar

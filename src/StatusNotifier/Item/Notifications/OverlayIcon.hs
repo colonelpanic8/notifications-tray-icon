@@ -26,7 +26,7 @@ data OverlayIconParams = OverlayIconParams
   , iconPath :: String
   , iconDBusName :: String
   , getOverlayName :: Int -> IO T.Text
-  , listenForNotifications :: UpdateNotifications -> (IO () -> IO ()) -> IO ()
+  , listenForNotifications :: UpdateNotifications -> IO ()
   }
 
 buildOverlayIcon OverlayIconParams
@@ -45,7 +45,7 @@ buildOverlayIcon OverlayIconParams
   client <- connectSession
 
   notificationCount <- newMVar 0
-  root <- makeMenuItemWithLabel "root"
+  root <- menuitemNew
   currentRoot <- newMVar root
 
   connection <- Gio.busGetSync Gio.BusTypeSession Gio.noCancellable
@@ -59,6 +59,7 @@ buildOverlayIcon OverlayIconParams
   let runOnMain action = do
         GLib.mainContextInvokeFull context 4 $ action >> return False
       setRoot newRoot = runOnMain $ do
+          putStrLn "Setting new root"
           modifyMVar_ currentRoot $ const $ return newRoot
           serverSetRoot menuServer newRoot
           return False
@@ -87,18 +88,7 @@ buildOverlayIcon OverlayIconParams
   export client (fromString path) clientInterface
   requestName client (busName_ dbusName) []
 
-  -- XXX: why is this needed?
-  GLib.mainContextInvokeFull context 5 $
-      readMVar currentRoot >>= serverSetRoot menuServer >> return True
-
-  startNotifications updateNotifications runOnMain
+  startNotifications updateNotifications
   proxyMenu
 
   W.registerStatusNotifierItem client dbusName
-
-sampleNotificationListener update runOnMain = do
-   runOnMain $ do
-    root <- makeMenuItemWithLabel "Testitem"
-    child <- makeMenuItemWithLabel "child"
-    menuitemChildAppend root child
-    update 2 root

@@ -13,6 +13,7 @@ import qualified DBus.Introspection as I
 import qualified DBus.TH as DBusTH
 import           Data.Coerce
 import           Data.Maybe
+import           System.Log.Logger
 
 data ProxyOptions = ProxyOptions Client BusName ObjectPath InterfaceName
 
@@ -20,7 +21,7 @@ maybeToEither :: b -> Maybe a -> Either b a
 maybeToEither = flip maybe Right . Left
 
 proxyAll :: Client -> BusName -> ObjectPath -> ObjectPath -> IO ()
-proxyAll client busName pathToProxy registrationPath = (either print print) =<< (runExceptT $ do
+proxyAll client busName pathToProxy registrationPath = either print return =<< (runExceptT $ do
   let introspectionCall =
         (methodCall pathToProxy
                      (interfaceName_ "org.freedesktop.DBus.Introspectable")
@@ -31,9 +32,13 @@ proxyAll client busName pathToProxy registrationPath = (either print print) =<< 
     xmlString <- maybeToEither errorInvalidParameters $
                  listToMaybe (methodReturnBody returnValue) >>= fromVariant
     maybeToEither errorFailed $ I.parseXML "/" xmlString
-  lift $ print obj
-  lift $ mapM_ runInterface $ I.objectInterfaces obj)
-   where runInterface interface = do
+  let interfaces = I.objectInterfaces obj
+  lift $ do
+    logM "DBus.Proxy" DEBUG $ show obj
+    when (length interfaces < 1) $
+         logM "DBus.Proxy" WARNING "No interfaces found when attempting to proxy"
+    mapM_ runInterface interfaces)
+  where runInterface interface = do
            let proxyOptions = ProxyOptions client busName pathToProxy $
                               I.interfaceName interface
            print interface
@@ -74,8 +79,8 @@ buildMethod (ProxyOptions client busName path interfaceName)
   , outSignature = T.Signature []
   , methodHandler = lift . handler
   }
-  where handler theMethodCall = putStrLn ("Proxy call " ++ (coerce $ I.methodName introspectionMethod))  >>
-          buildReply <$> call client
+  where handler theMethodCall =
+           buildReply <$> call client
                      theMethodCall { methodCallPath = path
                                 , methodCallDestination = Just busName
                                 }
