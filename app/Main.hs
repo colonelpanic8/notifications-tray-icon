@@ -32,6 +32,13 @@ overlayIconNameParser = strOption
   <> help "The overlay icon that will be displayed when notifications are present"
   )
 
+busNameParser = strOption
+  (  long "bus-name"
+  <> short 'b'
+  <> metavar "BUS-NAME"
+  <> value "org.Github.Notifications"
+  )
+
 githubPassTokenParser :: Parser (IO GH.Auth)
 githubPassTokenParser = githubAuthFromPass <$> strOption
   (  long "github-pass-token"
@@ -66,7 +73,7 @@ githubParser = fmap <$> helper <*> githubAuthParser
 
 updaterParser
   =   (fmap githubUpdaterNew <$> githubParser)
-  <|> (flag' (return $ const $ return ()) $ long "no-updater")
+  <|> (flag' (return $ sampleUpdater ) $ long "sample")
 
 logParser =
   option auto
@@ -77,20 +84,22 @@ logParser =
   <> value WARNING
   )
 
-params iconName overlayIconName notifications = OverlayIconParams
+params iconName overlayIconName busName notifications = OverlayIconParams
   { iconName = "github"
   , iconPath = "/StatusNotifierItem"
-  , iconDBusName = "org.Github.Notifications"
+  , iconDBusName = busName
   , getOverlayName = \count -> return $ if count > 0 then overlayIconName  else ""
   , runUpdater = notifications
   }
 
-startOverlayIcon getUpdater iconName overlayIconName logLevel = do
+startOverlayIcon getUpdater iconName overlayIconName logLevel busName = do
   logger <- getLogger "StatusNotifier.Item.Notifications"
   saveGlobalLogger $ setLevel logLevel logger
-  (params iconName overlayIconName <$> getUpdater) >>= buildOverlayIcon
+  (params iconName overlayIconName busName <$> getUpdater) >>= buildOverlayIcon
 
-parser = startOverlayIcon <$> updaterParser <*> iconNameParser <*> overlayIconNameParser <*> logParser
+parser =
+  startOverlayIcon
+  <$> updaterParser <*> iconNameParser <*> overlayIconNameParser <*> logParser <*> busNameParser
 
 versionOption :: Parser (a -> a)
 versionOption = infoOption

@@ -17,6 +17,7 @@ import qualified GI.GLib as GLib
 import qualified GI.Gio as Gio
 import qualified StatusNotifier.Item.Client as I
 import           StatusNotifier.Item.Notifications.GitHub
+import           StatusNotifier.Item.Notifications.Util
 import qualified StatusNotifier.Watcher.Client as W
 import           System.Log.Logger
 
@@ -95,3 +96,10 @@ buildOverlayIcon OverlayIconParams
   proxyMenu
 
   void $ W.registerStatusNotifierItem client dbusName
+
+sampleUpdater update = void $ forkIO $ forever $ do
+  root <- menuitemNew
+  child1 <- makeMenuItemWithLabel "child"
+  menuitemChildAppend root child1
+  update 3 root
+  threadDelay 1000000
