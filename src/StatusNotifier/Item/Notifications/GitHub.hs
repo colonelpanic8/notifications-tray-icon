@@ -90,11 +90,15 @@ githubUpdaterNew config@GitHubConfig
       updateNotifications newNotifications currentNotifications =
         let newSortedIds = sort $ map notificationId $ V.toList newNotifications
             oldSortedIds = sort $ map notificationId $ V.toList currentNotifications
-        in return (newNotifications, newSortedIds /= oldSortedIds)
+        in return ( newNotifications
+                  , (newSortedIds /= oldSortedIds
+                    , newSortedIds \\ oldSortedIds
+                    )
+                  )
       updateError error = do
         MV.modifyMVar_ errorVar (const return error)
         ghLog ERROR $ printf "Error retrieving notifications %s" $ show error
-        return False
+        return (False, [])
       updateVariables =
         getNotificationsFromGitHub >>=
         either updateError (MV.modifyMVar notificationsVar . updateNotifications)
@@ -102,6 +106,15 @@ githubUpdaterNew config@GitHubConfig
         newRoot <- buildMenu
         notificationsCount <- V.length <$> getCurrentNotifications
         update notificationsCount newRoot
+      sendNotifications newIds = do
+        notifications <- getCurrentNotifications
+        let getById id = V.find ((== id) . notificationId) notifications
+        mapM_ (traverse sendNotification . getById) newIds
+      sendNotification notification =
+        runCommandFromPath [ "notify-send"
+                           , "--icon=github"
+                           , getNotificationSummary notification
+                           ]
 
   void $ updateVariables
   doUpdate
@@ -110,7 +123,8 @@ githubUpdaterNew config@GitHubConfig
       isRight <$> race (threadDelay (floor $ refreshSeconds * 1000000))
                        (takeMVar forceRefreshVar)
     ghLog DEBUG "Refreshing notifications"
-    menuNeedsRebuild <- updateVariables
+    (menuNeedsRebuild, newIds) <- updateVariables
+    sendNotifications newIds
     ghLog DEBUG $ printf "Rebuild needed: %s, force: %s"
                          (show menuNeedsRebuild) (show forced)
     when (forced || menuNeedsRebuild) doUpdate
@@ -119,13 +133,10 @@ makeNotificationItem :: GitHubConfig -> Notification -> IO Menuitem
 makeNotificationItem GitHubConfig { ghAuth = auth }
                      notification@Notification
                        { notificationId = thisNotificationId
-                       , notificationSubject = Subject
-                         { subjectTitle = title }
-                       , notificationRepo = RepoRef
-                         { repoRefRepo = repositoryName }
+
+
                        } = do
-  let notificationText = T.pack $ printf "%s - %s"
-                         (untagName repositoryName) title
+  let notificationText = T.pack $ getNotificationSummary notification
       openHTML = openNotificationHTML notification
       markAsRead = markNotificationAsRead auth thisNotificationId
 
@@ -142,6 +153,17 @@ makeNotificationItem GitHubConfig { ghAuth = auth }
   menuitemChildAppend menuItem viewItem
 
   return menuItem
+
+getNotificationSummary :: Notification -> String
+getNotificationSummary
+  Notification
+  { notificationRepo =
+      RepoRef
+      { repoRefRepo = repositoryName }
+  , notificationSubject =
+    Subject
+    { subjectTitle = title }
+  } = printf "%s - %s" (untagName repositoryName) title
 
 openNotificationHTML :: Notification -> IO ()
 openNotificationHTML notification = do
