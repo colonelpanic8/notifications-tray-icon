@@ -103,6 +103,7 @@ githubUpdaterNew config@GitHubConfig
         notificationsCount <- V.length <$> getCurrentNotifications
         update notificationsCount newRoot
 
+  void $ updateVariables
   doUpdate
   void $ forkIO $ forever $ do
     forced <-
