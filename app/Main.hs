@@ -85,7 +85,7 @@ logParser =
   )
 
 params iconName overlayIconName busName notifications = OverlayIconParams
-  { iconName = "github"
+  { iconName = iconName
   , iconPath = "/StatusNotifierItem"
   , iconDBusName = busName
   , getOverlayName = \count -> return $ if count > 0 then overlayIconName  else ""
