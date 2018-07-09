@@ -39,6 +39,11 @@ passGet credentialName =
               buildEntry _ = ("", "")
           in (head passLines, entries)
 
+passGetMain :: MonadIO m => String -> String
+passGetMain name = do
+  Right (value, _) <- passGet name
+  return value
+
 xdgOpen :: MonadIO m => [String] -> m (Either String String)
 xdgOpen args = runCommandFromPath ("xdg-open":args)
 

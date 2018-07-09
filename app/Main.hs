@@ -10,12 +10,14 @@ import qualified GitHub.Auth as GH
 import           Options.Applicative
 import           StatusNotifier.Item.Notifications.GitHub
 import           StatusNotifier.Item.Notifications.OverlayIcon
+import           StatusNotifier.Item.Notifications.Util
 import           System.Console.Haskeline
 import           Text.Printf
 import           System.Log.Logger
 
 import           Paths_notifications_tray_icon (version)
 
+iconNameParser :: Parser String
 iconNameParser = strOption
   (  long "icon-name"
   <> short 'n'
@@ -24,6 +26,7 @@ iconNameParser = strOption
   <> help "The icon the item will display"
   )
 
+overlayIconNameParser :: Parser String
 overlayIconNameParser = strOption
   (  long "overlay-icon-name"
   <> short 'o'
@@ -32,6 +35,7 @@ overlayIconNameParser = strOption
   <> help "The overlay icon that will be displayed when notifications are present"
   )
 
+busNameParser :: Parser String
 busNameParser = strOption
   (  long "bus-name"
   <> short 'b'
@@ -39,12 +43,48 @@ busNameParser = strOption
   <> value "org.Github.Notifications"
   )
 
-githubPassTokenParser :: Parser (IO GH.Auth)
-githubPassTokenParser = githubAuthFromPass <$> strOption
-  (  long "github-pass-token"
+githubTokenAuthParser :: Parser (IO GH.Auth)
+githubTokenAuthParser = GH.OAuth . BS.pack <$>
+  (passGetMain <$> strOption
+  (  long "github-token-pass"
   <> metavar "TOKEN-NAME"
   <> help "Use pass to get a token password to authenticate with github"
-  )
+  )) <|>
+  (gitConfigGet <$> strOption
+  (  long "github-token-config"
+  <> metavar "TOKEN-KEY"
+  <> help "Get a github token using the provided git config key"
+  )) <|>
+  (return <$> strOption
+  (  long "github-token-string"
+  <> metavar "TOKEN"
+  <> help "Provide the github token as a value"
+  ))
+
+gitConfigGet :: String -> IO String
+gitConfigGet key = do
+  Right value <- runCommandFromPath ["git", "config", "--get", key]
+  return value
+
+githubConfigAuthParser :: Parser (IO GH.Auth)
+githubConfigAuthParser =
+  fmap githubAuthFromUsernamePassword <$> usernamePasswordParser
+  where usernamePasswordParser =
+          runGitConfigCommands <$> userOption <*> passwordOption
+        userOption = strOption
+                 (  long "github-config-user"
+                 <> metavar "USER-KEY"
+                 <> help "The git config key to use to get the github user"
+                 )
+        passwordOption = strOption
+                 (  long "github-config-password"
+                 <> metavar "PASSWORD-KEY"
+                 <> help "The git config key to use to get the github password"
+                 )
+        runGitConfigCommands userKey passwordKey = do
+          Right username <- gitConfigGet userKey
+          Right password <- gitConfigGet passwordKey
+          return (username, password)
 
 getUsernameAndPassword = runInputT defaultSettings $ do
   Just username <- getInputLine "username: "
@@ -59,7 +99,8 @@ githubConsoleAuthParser =
   flag' (githubAuthFromUsernamePassword <$> getUsernameAndPassword) $
   long "github-basic-auth"
 
-githubAuthParser = githubConsoleAuthParser <|> githubPassTokenParser
+githubAuthParser =
+  githubTokenAuthParser <|> githubConfigAuthParser <|> githubConsoleAuthParser
 
 githubParser :: Parser (IO GitHubConfig)
 githubParser = fmap <$> helper <*> githubAuthParser
