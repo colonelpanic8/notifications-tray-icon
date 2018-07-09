@@ -11,12 +11,16 @@ extra-deps:
 - spool-0.1
 - gi-dbusmenu-0.4.1
 - gi-gio-2.0.18
+- gi-glib-2.0.17
+- haskell-gi-0.21.2
+- haskell-gi-base-0.21.1
 resolver: lts-11.16
 nix:
   packages:
     - libdbusmenu-glib
     - gobjectIntrospection
     - libdbusmenu-glib
+    - glib
     - libxml2
     - pkgconfig
     - gcc
