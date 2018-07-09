@@ -39,7 +39,7 @@ passGet credentialName =
               buildEntry _ = ("", "")
           in (head passLines, entries)
 
-passGetMain :: MonadIO m => String -> IO String
+passGetMain :: MonadIO m => String -> m String
 passGetMain name = do
   Right (value, _) <- passGet name
   return value

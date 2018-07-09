@@ -3,6 +3,7 @@ module Main where
 import           Control.Concurrent
 import           Control.Monad
 import           Control.Monad.Trans.Class
+import qualified Data.Text as T
 import qualified Data.ByteString.Char8 as BS
 import           Data.Semigroup ((<>))
 import           Data.Version (showVersion)
@@ -44,12 +45,12 @@ busNameParser = strOption
   )
 
 githubTokenAuthParser :: Parser (IO GH.Auth)
-githubTokenAuthParser = GH.OAuth . BS.pack <$>
+githubTokenAuthParser = fmap (GH.OAuth . BS.pack) <$>
   (passGetMain <$> strOption
   (  long "github-token-pass"
   <> metavar "TOKEN-NAME"
   <> help "Use pass to get a token password to authenticate with github"
-  )) <|>
+  ) <|>
   (gitConfigGet <$> strOption
   (  long "github-token-config"
   <> metavar "TOKEN-KEY"
@@ -59,7 +60,7 @@ githubTokenAuthParser = GH.OAuth . BS.pack <$>
   (  long "github-token-string"
   <> metavar "TOKEN"
   <> help "Provide the github token as a value"
-  ))
+  )))
 
 gitConfigGet :: String -> IO String
 gitConfigGet key = do
@@ -82,8 +83,8 @@ githubConfigAuthParser =
                  <> help "The git config key to use to get the github password"
                  )
         runGitConfigCommands userKey passwordKey = do
-          Right username <- gitConfigGet userKey
-          Right password <- gitConfigGet passwordKey
+          username <- gitConfigGet userKey
+          password <- gitConfigGet passwordKey
           return (username, password)
 
 getUsernameAndPassword = runInputT defaultSettings $ do
@@ -129,18 +130,21 @@ params iconName overlayIconName busName notifications = OverlayIconParams
   { iconName = iconName
   , iconPath = "/StatusNotifierItem"
   , iconDBusName = busName
-  , getOverlayName = \count -> return $ if count > 0 then overlayIconName  else ""
+  , getOverlayName = \count -> return $ if count > 0 then T.pack overlayIconName else ""
   , runUpdater = notifications
   }
 
 startOverlayIcon getUpdater iconName overlayIconName logLevel busName = do
   logger <- getLogger "StatusNotifier.Item.Notifications"
   saveGlobalLogger $ setLevel logLevel logger
+  dbusLogger <- getLogger "DBus"
+  saveGlobalLogger $ setLevel logLevel dbusLogger
   (params iconName overlayIconName busName <$> getUpdater) >>= buildOverlayIcon
 
 parser =
   startOverlayIcon
-  <$> updaterParser <*> iconNameParser <*> overlayIconNameParser <*> logParser <*> busNameParser
+  <$> updaterParser <*> iconNameParser <*> overlayIconNameParser
+  <*> logParser <*> busNameParser
 
 versionOption :: Parser (a -> a)
 versionOption = infoOption

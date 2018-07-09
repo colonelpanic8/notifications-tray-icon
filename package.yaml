@@ -61,4 +61,5 @@ executables:
       - hslogger
       - notifications-tray-icon
       - optparse-applicative
+      - text
       - transformers

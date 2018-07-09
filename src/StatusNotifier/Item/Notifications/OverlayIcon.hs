@@ -102,4 +102,4 @@ sampleUpdater update = void $ forkIO $ forever $ do
   child1 <- makeMenuItemWithLabel "child"
   menuitemChildAppend root child1
   update 3 root
-  threadDelay 1000000
+  threadDelay 100000000
