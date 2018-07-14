@@ -45,7 +45,7 @@ busNameParser = strOption
   )
 
 githubTokenAuthParser :: Parser (IO GH.Auth)
-githubTokenAuthParser = fmap (GH.OAuth . BS.pack) <$>
+githubTokenAuthParser = fmap (GH.OAuth . BS.pack . T.unpack . T.strip . T.pack) <$>
   (passGetMain <$> strOption
   (  long "github-token-pass"
   <> metavar "TOKEN-NAME"
