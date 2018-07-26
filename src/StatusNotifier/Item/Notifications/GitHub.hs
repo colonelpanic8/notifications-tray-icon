@@ -23,6 +23,7 @@ import qualified GitHub.Auth as Auth
 import           GitHub.Data
 import           GitHub.Endpoints.Activity.Notifications
 import           Network.HTTP.Simple
+import           Network.HTTP.Types
 import           StatusNotifier.Item.Notifications.Util
 import           System.Log.Logger
 import           Text.Printf
@@ -137,7 +138,7 @@ makeNotificationItem GitHubConfig { ghAuth = auth }
 
                        } = do
   let notificationText = T.pack $ getNotificationSummary notification
-      openHTML = openNotificationHTML notification
+      openHTML = openNotificationHTML auth notification
       markAsRead = markNotificationAsRead auth thisNotificationId
 
   menuItem <- menuitemNewWithId $ fromIntegral $ untagId thisNotificationId
@@ -165,11 +166,18 @@ getNotificationSummary
     { subjectTitle = title }
   } = printf "%s - %s" (untagName repositoryName) title
 
-openNotificationHTML :: Notification -> IO ()
-openNotificationHTML notification = do
-  let setUserAgent = setRequestHeader
-                   "User-Agent" ["Taffybar-GithubNotifier"]
-      request = setUserAgent $ parseRequest_ $ T.unpack $ getUrl $
+
+
+getOAuthHeader :: Auth -> RequestHeaders
+getOAuthHeader (OAuth token)             = [("Authorization", "token " <> token)]
+getOAuthHeader _                         = []
+
+openNotificationHTML :: Auth -> Notification -> IO ()
+openNotificationHTML auth notification = do
+  let myHeaders = getOAuthHeader auth
+        <> [("User-Agent", "TaffyBar-GithubNotifier")]
+        <> [("Accept", "application/json")]
+      request = setRequestHeaders myHeaders $ parseRequest_ $ T.unpack $ getUrl $
                 subjectURL $ notificationSubject notification
   response <- httpLBS request
   ghLog DEBUG $ printf "Got response from subject url: %s" $ show response
