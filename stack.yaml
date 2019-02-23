@@ -2,11 +2,11 @@ packages:
 - '.'
 - location:
     git: https://github.com/IvanMalison/github.git
-    commit: 3fa5d8e7e3186b7ed07d930dae78e279a9eeaf46
+    commit: 64603b853672101dca898826f5f2a6b721322ac5
   extra-dep: true
 extra-deps:
 - status-notifier-item-0.3.0.0
-- dbus-1.0.1
+- dbus-1.2.1
 - dbus-hslogger-0.1.0.1
 - spool-0.1
 - gi-dbusmenu-0.4.1
@@ -14,7 +14,7 @@ extra-deps:
 - gi-glib-2.0.17
 - haskell-gi-0.21.2
 - haskell-gi-base-0.21.1
-resolver: lts-12.0
+resolver: lts-13.8
 nix:
   packages:
     - libdbusmenu-glib
