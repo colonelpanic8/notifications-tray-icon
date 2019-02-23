@@ -80,11 +80,11 @@ githubUpdaterNew config@GitHubConfig
         menuitemChildAppend root markAllReadItem
 
         viewItem <- makeMenuItemWithLabel "View notifications"
-        onMenuitemItemActivated viewItem $ const $ void $ openNotificationsHTML
+        onMenuitemItemActivated viewItem $ const $ void openNotificationsHTML
         menuitemChildAppend root viewItem
 
         refreshItem <- makeMenuItemWithLabel "Refresh"
-        onMenuitemItemActivated refreshItem $ const $ forceRefresh
+        onMenuitemItemActivated refreshItem $ const forceRefresh
         menuitemChildAppend root refreshItem
 
         return root
@@ -97,7 +97,7 @@ githubUpdaterNew config@GitHubConfig
                     )
                   )
       updateError error = do
-        MV.modifyMVar_ errorVar (const return error)
+        MV.modifyMVar_ errorVar (const $ return error)
         ghLog ERROR $ printf "Error retrieving notifications %s" $ show error
         return (False, [])
       updateVariables =
@@ -117,7 +117,7 @@ githubUpdaterNew config@GitHubConfig
                            , getNotificationSummary notification
                            ]
 
-  void $ updateVariables
+  void updateVariables
   doUpdate
   void $ forkIO $ forever $ do
     forced <-
@@ -146,7 +146,7 @@ makeNotificationItem GitHubConfig { ghAuth = auth }
   menuitemPropertySetVariant menuItem "label" textVariant
 
   markAsReadItem <- makeMenuItemWithLabel "Mark as read"
-  onMenuitemItemActivated markAsReadItem $ const $ void $ markAsRead
+  onMenuitemItemActivated markAsReadItem $ const $ void markAsRead
   menuitemChildAppend menuItem markAsReadItem
 
   viewItem <- makeMenuItemWithLabel "View on GitHub"
@@ -166,8 +166,6 @@ getNotificationSummary
     { subjectTitle = title }
   } = printf "%s - %s" (untagName repositoryName) title
 
-
-
 getOAuthHeader :: Auth -> RequestHeaders
 getOAuthHeader (OAuth token)             = [("Authorization", "token " <> token)]
 getOAuthHeader _                         = []
@@ -182,8 +180,7 @@ openNotificationHTML auth notification = do
   response <- httpLBS request
   ghLog DEBUG $ printf "Got response from subject url: %s" $ show response
   let maybeUrl = getHTMLURL $ getResponseBody response
-  void $ sequenceA $ openURL . T.unpack <$> maybeUrl
-  return ()
+  sequenceA_ $ openURL . T.unpack <$> maybeUrl
 
 getHTMLURL :: LBS.ByteString -> Maybe T.Text
 getHTMLURL jsonText = decode jsonText >>= parseMaybe (.: "html_url")
