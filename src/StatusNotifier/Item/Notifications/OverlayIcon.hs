@@ -60,7 +60,7 @@ buildOverlayIcon OverlayIconParams
   forkIO $ GLib.mainLoopRun mainLoop
   context <- GLib.mainLoopGetContext mainLoop
 
-  let runOnMain action = do
+  let runOnMain action =
         GLib.mainContextInvokeFull context 4 $ action >> return False
       setRoot newRoot = runOnMain $ do
           overlayLog DEBUG "Setting new root"
@@ -83,7 +83,7 @@ buildOverlayIcon OverlayIconParams
                   , interfaceProperties =
                     [ readOnlyProperty "IconName" $ return name
                     , readOnlyProperty "OverlayIconName" $
-                      (readMVar notificationCount) >>= getOverlayIconName
+                      readMVar notificationCount >>= getOverlayIconName
                     , readOnlyProperty "Menu" $ return $ objectPath_ menuPathString
                     ]
                   , interfaceSignals = []

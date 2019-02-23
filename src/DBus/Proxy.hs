@@ -21,7 +21,7 @@ maybeToEither :: b -> Maybe a -> Either b a
 maybeToEither = flip maybe Right . Left
 
 proxyAll :: Client -> BusName -> ObjectPath -> ObjectPath -> IO ()
-proxyAll client busName pathToProxy registrationPath = either print return =<< (runExceptT $ do
+proxyAll client busName pathToProxy registrationPath = either print return =<< runExceptT (do
   let introspectionCall =
         (methodCall pathToProxy
                      (interfaceName_ "org.freedesktop.DBus.Introspectable")
@@ -58,7 +58,7 @@ buildInterface options I.Interface
                  , I.interfaceProperties = properties
                  } = Interface
   { interfaceName = name
-  , interfaceMethods = map (buildMethod options) $ methods
+  , interfaceMethods = map (buildMethod options) methods
   , interfaceProperties = map (buildProperty options) properties
   , interfaceSignals = []
   }
@@ -89,7 +89,7 @@ buildProperty (ProxyOptions client busName path interfaceName)
               introspectionProperty = Property
   { propertyName = propName
   , propertyType = T.TypeVariant -- TODO: make this accurate
-  , propertyGetter = Just $ getter
+  , propertyGetter = Just getter
   , propertySetter = Just $ void . setter
   }
   where propName = memberName_ $ I.propertyName introspectionProperty
