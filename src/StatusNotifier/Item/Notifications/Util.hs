@@ -1,6 +1,7 @@
 module StatusNotifier.Item.Notifications.Util where
 
 import           Control.Arrow
+import           Control.Monad.Fail
 import           Control.Monad.IO.Class
 import           Data.Maybe
 import qualified Data.Text as T
@@ -27,7 +28,7 @@ runCommand cmd args = liftIO $ do
     ExitSuccess -> Right stdout
     ExitFailure exitCode -> Left $ printf "Exit code %s: %s " (show exitCode) stderr
 
-passGet :: MonadIO m => String -> m (Either String (String, [(String, String)]))
+passGet :: (MonadFail m, MonadIO m) => String -> m (Either String (String, [(String, String)]))
 passGet credentialName =
   right (getPassComponents . lines) <$>
         runCommandFromPath ["pass", "show", credentialName]
@@ -39,7 +40,7 @@ passGet credentialName =
               buildEntry _ = ("", "")
           in (head passLines, entries)
 
-passGetMain :: MonadIO m => String -> m String
+passGetMain :: (MonadFail m, MonadIO m) => String -> m String
 passGetMain name = do
   Right (value, _) <- passGet name
   return value
