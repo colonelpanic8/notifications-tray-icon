@@ -36,7 +36,7 @@ library:
     - gi-dbusmenu
     - gi-gio
     - gi-glib
-    - github
+    - github >= 0.22
     - hslogger
     - http-conduit
     - http-types
@@ -64,3 +64,4 @@ executables:
       - optparse-applicative
       - text
       - transformers
+      - tuple

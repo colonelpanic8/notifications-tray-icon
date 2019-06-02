@@ -3,9 +3,10 @@ module Main where
 import           Control.Concurrent
 import           Control.Monad
 import           Control.Monad.Trans.Class
-import qualified Data.Text as T
 import qualified Data.ByteString.Char8 as BS
 import           Data.Semigroup ((<>))
+import qualified Data.Text as T
+import           Data.Tuple.Sequence
 import           Data.Version (showVersion)
 import qualified GitHub.Auth as GH
 import           Options.Applicative
@@ -13,8 +14,8 @@ import           StatusNotifier.Item.Notifications.GitHub
 import           StatusNotifier.Item.Notifications.OverlayIcon
 import           StatusNotifier.Item.Notifications.Util
 import           System.Console.Haskeline
-import           Text.Printf
 import           System.Log.Logger
+import           Text.Printf
 
 import           Paths_notifications_tray_icon (version)
 
@@ -87,10 +88,13 @@ githubConfigAuthParser =
           password <- gitConfigGet passwordKey
           return (username, password)
 
-getUsernameAndPassword = runInputT defaultSettings $ do
-  Just username <- getInputLine "username: "
-  Just password <- getPassword (Just '*') "password: "
-  return (username, password)
+getUsernameAndPassword :: IO (String, String)
+getUsernameAndPassword =
+  runInputT defaultSettings $ sequenceT (getU, getP)
+    where getP :: InputT IO String
+          getP = getPassword (Just '*') "password: " >>= maybe getP pure
+          getU :: InputT IO String
+          getU = getInputLine "username: " >>= maybe getU pure
 
 githubAuthFromUsernamePassword (username, password) =
   GH.BasicAuth (BS.pack username) (BS.pack password)

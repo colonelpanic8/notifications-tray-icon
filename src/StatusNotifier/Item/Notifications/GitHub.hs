@@ -97,7 +97,7 @@ githubUpdaterNew config@GitHubConfig
                     )
                   )
       updateError error = do
-        MV.modifyMVar_ errorVar (const $ return error)
+        MV.modifyMVar_ errorVar (const $ return $ Just error)
         ghLog ERROR $ printf "Error retrieving notifications %s" $ show error
         return (False, [])
       updateVariables =
@@ -180,7 +180,7 @@ openNotificationHTML auth notification = do
   response <- httpLBS request
   ghLog DEBUG $ printf "Got response from subject url: %s" $ show response
   let maybeUrl = getHTMLURL $ getResponseBody response
-  sequenceA_ $ openURL . T.unpack <$> maybeUrl
+  sequence_ $ openURL . T.unpack <$> maybeUrl
 
 getHTMLURL :: LBS.ByteString -> Maybe T.Text
 getHTMLURL jsonText = decode jsonText >>= parseMaybe (.: "html_url")
