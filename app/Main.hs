@@ -164,6 +164,6 @@ main :: IO ()
 main = do
   join $ execParser $ info (helper <*> versionOption <*> parser)
          (  fullDesc
-         <> progDesc "Run a standalone StatusNotifierItem/AppIndicator tray"
+         <> progDesc "Run a notification monitoring tray icon"
          )
   void $ forever $ threadDelay 999999999999999999
