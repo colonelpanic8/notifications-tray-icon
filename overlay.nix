@@ -8,6 +8,7 @@ pkgs: pkgs.haskellPackages.override (old: {
       libraryHaskellDepends = old.libraryHaskellDepends ++ [
         self.binary-orphans_1_0_1
       ];
+      broken = false;
     }));
     binary-orphans_1_0_1 = pkgs.haskell.lib.dontCheck super.binary-orphans_1_0_1;
     github = pkgs.haskell.lib.overrideCabal super.github (old: {
