@@ -18,6 +18,7 @@ _: pkgs: {
         libraryHaskellDepends = old.libraryHaskellDepends ++ [
           self.binary-instances self.exceptions self.transformers-compat
         ];
+        broken = false;
       });
       time-compat = pkgs.haskell.lib.dontCheck (pkgs.haskell.lib.overrideCabal super.time-compat (old: {
         version = "1.9.2.2";
@@ -26,6 +27,28 @@ _: pkgs: {
           self.base-orphans
         ];
       }));
+      gi-dbusmenu = self.callHackageDirect {
+        pkg = "gi-dbusmenu";
+        ver = "0.4.6";
+        sha256 = "0s03c5kikbbypcm5i0rjklzkihm921bdip68l9ymmigrk8i9wynw";
+      } {inherit (pkgs) libdbusmenu;};
+      gi-dbusmenugtk3 = self.callHackageDirect {
+        pkg = "gi-dbusmenugtk3";
+        ver = "0.4.7";
+        sha256 = "0g3wnn25631dxsb8wa4l3wbir30ryq29qcr5lv2nbd4k04fmslzc";
+      } {inherit (pkgs) gtk3; inherit (pkgs) libdbusmenu-gtk3;};
+      haskell-gi-base = self.callHackageDirect {
+        pkg = "haskell-gi-base";
+        ver = "0.22.2";
+        sha256 = "0bdmhvq2bw5mf135wf94hdc3xidjzyr9y3bmvx30pgyv6hflldki";
+      }
+      { inherit (pkgs) glib; };
+      haskell-gi = self.callHackageDirect {
+        pkg = "haskell-gi";
+        ver = "0.22.6";
+        sha256 = "0pizgz6846i19fi0avsqlqxal1f09ihpd9qlyyhci4j3fvgvrsl0";
+      }
+      { inherit (pkgs) glib gobject-introspection; };
     });
   });
 }
