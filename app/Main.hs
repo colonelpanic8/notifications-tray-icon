@@ -166,4 +166,5 @@ main = do
          (  fullDesc
          <> progDesc "Run a notification monitoring tray icon"
          )
+  -- TODO: Come up with a better way to hang indefinitely
   void $ forever $ threadDelay 999999999999999999
