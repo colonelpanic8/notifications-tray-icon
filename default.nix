@@ -1,3 +1,3 @@
 let
   pkgs = import <nixpkgs> { overlays = [ (import ./overlay.nix) ]; };
-in pkgs.haskellPackages.callCabal2nix "notifications-tray-icon" ./. { }
+in pkgs.haskellPackages.notifications-tray-icon
