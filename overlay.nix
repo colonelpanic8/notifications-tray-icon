@@ -1,7 +1,10 @@
 self: super:
 
 let
-  sourceTransformer = if builtins.getEnv "CI" == "" then builtins.fetchGit else (x: x);
+  sourceTransformer =
+    if builtins.getEnv "CI" == "" && builtins.pathExists ./.git
+    then builtins.fetchGit
+    else (x: x);
   thisOverlay = _: pkgs: {
     haskellPackages = pkgs.haskellPackages.override (old: {
       overrides =
