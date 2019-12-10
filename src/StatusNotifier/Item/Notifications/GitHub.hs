@@ -22,6 +22,7 @@ import           GI.Dbusmenu
 import qualified GitHub.Auth as Auth
 import           GitHub.Data
 import           GitHub.Endpoints.Activity.Notifications
+import           GitHub.Request
 import           Network.HTTP.Simple
 import           Network.HTTP.Types
 import           StatusNotifier.Item.Notifications.Util
@@ -51,7 +52,7 @@ githubUpdaterNew config@GitHubConfig
                    , ghRefreshSeconds = refreshSeconds
                    } update = do
 
-  let getNotificationsFromGitHub = getNotifications auth
+  let getNotificationsFromGitHub = executeRequest auth $ getNotificationsR FetchAll
       logAndShow :: (Show v) => Priority -> String -> v -> IO ()
       logAndShow level message value =
         ghLog level $ printf message (show value)
@@ -63,7 +64,7 @@ githubUpdaterNew config@GitHubConfig
   let forceRefresh = void $ MV.tryPutMVar forceRefreshVar ()
       delayedRefresh = void $ forkIO $ threadDelay 1000000 >> forceRefresh
       openNotificationsHTML = openURL "https://github.com/notifications"
-      markAllRead = markNotificationsAsRead auth
+      markAllRead = executeRequest auth markAllNotificationsAsReadR
       getCurrentNotifications = MV.readMVar notificationsVar
       buildMenu = do
         notifications <- getCurrentNotifications
@@ -139,7 +140,7 @@ makeNotificationItem GitHubConfig { ghAuth = auth }
                        } = do
   let notificationText = T.pack $ getNotificationSummary notification
       openHTML = openNotificationHTML auth notification
-      markAsRead = markNotificationAsRead auth thisNotificationId
+      markAsRead = executeRequest auth $ markNotificationAsReadR thisNotificationId
 
   menuItem <- menuitemNewWithId $ fromIntegral $ untagId thisNotificationId
   textVariant <- liftIO $ toGVariant notificationText
