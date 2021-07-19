@@ -20,6 +20,7 @@ import           StatusNotifier.Item.Notifications.GitHub
 import           StatusNotifier.Item.Notifications.Util
 import qualified StatusNotifier.Watcher.Client as W
 import           System.Log.Logger
+import qualified GI.Gio.Objects.Cancellable
 
 type UpdateNotifications = Int -> Menuitem -> IO ()
 
@@ -52,7 +53,8 @@ buildOverlayIcon OverlayIconParams
   root <- menuitemNew
   currentRoot <- newMVar root
 
-  connection <- Gio.busGetSync Gio.BusTypeSession Gio.noCancellable
+  connection <- Just <$> GI.Gio.Objects.Cancellable.cancellableNew >>=
+                Gio.busGetSync Gio.BusTypeSession
   Gio.busOwnNameOnConnection connection menuBusText [] Nothing Nothing
   menuServer <- serverNew menuPathText
 
