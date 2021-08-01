@@ -11,8 +11,3 @@ call notify-send to display a notification when new notifications come in.
 
 For the time being, github is the only supported notification source. Support
 for gmail and other sources should be coming soon.
-
-# Installation
-
-For the time being, notifications-tray-icon must be installed from source using
-stack.
