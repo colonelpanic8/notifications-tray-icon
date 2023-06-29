@@ -1,8 +1,13 @@
 {
   description = "Notifications Tray Icon";
   inputs = {
-    flake-utils.url = "github:numtide/flake-utils";
-    git-ignore-nix.url = "github:IvanMalison/gitignore.nix/master";
+    flake-utils = {
+      url = "github:numtide/flake-utils";
+    };
+    git-ignore-nix = {
+      url = "github:IvanMalison/gitignore.nix/master";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
   outputs = { self, flake-utils, nixpkgs, git-ignore-nix }:
   let
@@ -12,7 +17,7 @@
         (hself: hsuper: {
           notifications-tray-icon =
             hself.callCabal2nix "notifications-tray-icon"
-            (git-ignore-nix.gitIgnoreSource ./.)
+            (git-ignore-nix.lib.gitignoreSource ./.)
             { };
         });
       });
