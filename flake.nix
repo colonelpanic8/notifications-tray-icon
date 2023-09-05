@@ -8,28 +8,34 @@
       url = "github:IvanMalison/gitignore.nix/master";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    haskell-language-server = {
+      url = "github:colonelpanic8/haskell-language-server/goto-dependency-definition-2";
+    };
   };
-  outputs = { self, flake-utils, nixpkgs, git-ignore-nix }:
+  outputs = { self, flake-utils, nixpkgs, git-ignore-nix, haskell-language-server, ... }:
   let
     overlay = final: prev: {
-      haskellPackages = prev.haskellPackages.override (old: {
-        overrides = prev.lib.composeExtensions (old.overrides or (_: _: {}))
-        (hself: hsuper: {
+      haskell = prev.haskell // {
+        packageOverrides = hfinal: hprev: prev.haskell.packageOverrides hfinal hprev // {
           notifications-tray-icon =
-            hself.callCabal2nix "notifications-tray-icon"
+            hfinal.callCabal2nix "notifications-tray-icon"
             (git-ignore-nix.lib.gitignoreSource ./.)
             { };
-        });
-      });
+        };
+      };
     };
     overlays = [overlay];
   in flake-utils.lib.eachDefaultSystem (system:
   let pkgs = import nixpkgs { inherit system overlays; config.allowBroken = true; };
+      hpkgs = pkgs.haskell.packages.ghc945;
   in
-  rec {
-    devShell = pkgs.haskellPackages.shellFor {
+  {
+    devShell = hpkgs.shellFor {
       packages = p: [ p.notifications-tray-icon ];
+      nativeBuildInputs = [
+        haskell-language-server.packages.${system}.haskell-language-server-94
+      ];
     };
-    defaultPackage = pkgs.haskellPackages.notifications-tray-icon;
+    defaultPackage = hpkgs.notifications-tray-icon;
   }) // { inherit overlay overlays; } ;
 }

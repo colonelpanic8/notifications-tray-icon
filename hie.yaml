@@ -1,0 +1,7 @@
+cradle:
+    cabal:
+    - path: "./src"
+      component: "lib:notifications-tray-icon"
+
+    - path: "./app/Main.hs"
+      component: "notifications-tray-icon:exe:notifications-tray-icon"
