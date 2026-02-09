@@ -19,7 +19,8 @@ import           System.Console.Haskeline
 import           System.Log.Logger
 import           Text.Printf
 
-import           Paths_notifications_tray_icon (version)
+import           Paths_notifications_tray_icon (version, getDataDir)
+import           System.FilePath ((</>))
 
 iconNameParser :: Parser String
 iconNameParser = strOption
@@ -35,7 +36,7 @@ overlayIconNameParser = strOption
   (  long "overlay-icon-name"
   <> short 'o'
   <> metavar "NAME"
-  <> value "github"
+  <> value "notification-indicator"
   <> help "The overlay icon that will be displayed when notifications are present"
   )
 
@@ -174,10 +175,11 @@ logParser =
   <> value WARNING
   )
 
-params iconName overlayIconName busName notifications = OverlayIconParams
+params themePath iconName overlayIconName busName notifications = OverlayIconParams
   { iconName = iconName
   , iconPath = "/StatusNotifierItem"
   , iconDBusName = busName
+  , iconThemePath = Just themePath
   , getOverlayName = \count -> return $ if count > 0 then T.pack overlayIconName else ""
   , runUpdater = notifications
   }
@@ -187,7 +189,9 @@ startOverlayIcon getUpdater iconName overlayIconName logLevel busName = do
   saveGlobalLogger $ setLevel logLevel logger
   dbusLogger <- getLogger "DBus"
   saveGlobalLogger $ setLevel logLevel dbusLogger
-  (params iconName overlayIconName busName <$> getUpdater) >>= buildOverlayIcon
+  dataDir <- getDataDir
+  let themePath = dataDir </> "icons"
+  (params themePath iconName overlayIconName busName <$> getUpdater) >>= buildOverlayIcon
 
 parser =
   startOverlayIcon
