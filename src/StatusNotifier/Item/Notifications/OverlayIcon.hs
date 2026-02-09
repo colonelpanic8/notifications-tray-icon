@@ -16,7 +16,6 @@ import           GI.Dbusmenu
 import qualified GI.GLib as GLib
 import qualified GI.Gio as Gio
 import qualified StatusNotifier.Item.Client as I
-import           StatusNotifier.Item.Notifications.GitHub
 import           StatusNotifier.Item.Notifications.Util
 import qualified StatusNotifier.Watcher.Client as W
 import           System.Log.Logger
@@ -28,6 +27,7 @@ data OverlayIconParams = OverlayIconParams
   { iconName :: String
   , iconPath :: String
   , iconDBusName :: String
+  , iconThemePath :: Maybe String
   , getOverlayName :: Int -> IO T.Text
   , runUpdater :: UpdateNotifications -> IO ()
   }
@@ -38,6 +38,7 @@ buildOverlayIcon OverlayIconParams
                    { iconName = name
                    , iconPath = path
                    , iconDBusName = dbusName
+                   , iconThemePath = maybeThemePath
                    , getOverlayName = getOverlayIconName
                    , runUpdater = startNotifications
                    } = do
@@ -79,6 +80,9 @@ buildOverlayIcon OverlayIconParams
                    (busName_ menuBusString)
                    (objectPath_ menuPathString)
                    (objectPath_ menuPathString)
+      themePathProps = case maybeThemePath of
+        Just tp -> [readOnlyProperty "IconThemePath" $ return tp]
+        Nothing -> []
       clientInterface =
         Interface { interfaceName = "org.kde.StatusNotifierItem"
                   , interfaceMethods = []
@@ -87,7 +91,7 @@ buildOverlayIcon OverlayIconParams
                     , readOnlyProperty "OverlayIconName" $
                       readMVar notificationCount >>= getOverlayIconName
                     , readOnlyProperty "Menu" $ return $ objectPath_ menuPathString
-                    ]
+                    ] ++ themePathProps
                   , interfaceSignals = []
                   }
 

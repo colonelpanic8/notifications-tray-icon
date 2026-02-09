@@ -9,7 +9,9 @@ import qualified Data.Text as T
 import           Data.Tuple.Sequence
 import           Data.Version (showVersion)
 import qualified GitHub.Auth as GH
+import           Gitea.API
 import           Options.Applicative
+import           StatusNotifier.Item.Notifications.Gitea
 import           StatusNotifier.Item.Notifications.GitHub
 import           StatusNotifier.Item.Notifications.OverlayIcon
 import           StatusNotifier.Item.Notifications.Util
@@ -17,7 +19,8 @@ import           System.Console.Haskeline
 import           System.Log.Logger
 import           Text.Printf
 
-import           Paths_notifications_tray_icon (version)
+import           Paths_notifications_tray_icon (version, getDataDir)
+import           System.FilePath ((</>))
 
 iconNameParser :: Parser String
 iconNameParser = strOption
@@ -33,7 +36,7 @@ overlayIconNameParser = strOption
   (  long "overlay-icon-name"
   <> short 'o'
   <> metavar "NAME"
-  <> value "github"
+  <> value "notification-indicator"
   <> help "The overlay icon that will be displayed when notifications are present"
   )
 
@@ -117,8 +120,50 @@ githubParser = fmap <$> helper <*> githubAuthParser
             <> metavar "SECONDS"
             )
 
+giteaBaseUrlParser :: Parser String
+giteaBaseUrlParser = strOption
+  (  long "gitea-url"
+  <> metavar "URL"
+  <> help "The base URL of the Gitea instance (e.g. https://gitea.example.com)"
+  )
+
+giteaTokenAuthParser :: Parser (IO GiteaAuth)
+giteaTokenAuthParser = fmap (GiteaToken . BS.pack . T.unpack . T.strip . T.pack) <$>
+  (passGetMain <$> strOption
+  (  long "gitea-token-pass"
+  <> metavar "TOKEN-NAME"
+  <> help "Use pass to get a token to authenticate with Gitea"
+  ) <|>
+  (gitConfigGet <$> strOption
+  (  long "gitea-token-config"
+  <> metavar "TOKEN-KEY"
+  <> help "Get a Gitea token using the provided git config key"
+  )) <|>
+  (return <$> strOption
+  (  long "gitea-token-string"
+  <> metavar "TOKEN"
+  <> help "Provide the Gitea token as a value"
+  )))
+
+giteaParser :: Parser (IO GiteaUpdaterConfig)
+giteaParser = mkConfig <$> giteaBaseUrlParser <*> giteaTokenAuthParser <*> pollIntervalOption
+  where
+    pollIntervalOption = option auto
+      (  long "poll-interval"
+      <> help "The amount of time to wait between refreshes of notification data"
+      <> value 30
+      <> metavar "SECONDS"
+      )
+    mkConfig baseUrl getAuth interval = do
+      auth <- getAuth
+      return GiteaUpdaterConfig
+        { giteaConfig = GiteaConfig { giteaAuth = auth, giteaBaseUrl = baseUrl }
+        , giteaRefreshSeconds = interval
+        }
+
 updaterParser
   =   (fmap githubUpdaterNew <$> githubParser)
+  <|> (fmap giteaUpdaterNew <$> giteaParser)
   <|> (flag' (return $ sampleUpdater ) $ long "sample")
 
 logParser =
@@ -130,10 +175,11 @@ logParser =
   <> value WARNING
   )
 
-params iconName overlayIconName busName notifications = OverlayIconParams
+params themePath iconName overlayIconName busName notifications = OverlayIconParams
   { iconName = iconName
   , iconPath = "/StatusNotifierItem"
   , iconDBusName = busName
+  , iconThemePath = Just themePath
   , getOverlayName = \count -> return $ if count > 0 then T.pack overlayIconName else ""
   , runUpdater = notifications
   }
@@ -143,7 +189,9 @@ startOverlayIcon getUpdater iconName overlayIconName logLevel busName = do
   saveGlobalLogger $ setLevel logLevel logger
   dbusLogger <- getLogger "DBus"
   saveGlobalLogger $ setLevel logLevel dbusLogger
-  (params iconName overlayIconName busName <$> getUpdater) >>= buildOverlayIcon
+  dataDir <- getDataDir
+  let themePath = dataDir </> "icons"
+  (params themePath iconName overlayIconName busName <$> getUpdater) >>= buildOverlayIcon
 
 parser =
   startOverlayIcon
