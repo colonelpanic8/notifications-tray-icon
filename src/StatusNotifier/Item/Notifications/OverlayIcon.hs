@@ -16,7 +16,6 @@ import           GI.Dbusmenu
 import qualified GI.GLib as GLib
 import qualified GI.Gio as Gio
 import qualified StatusNotifier.Item.Client as I
-import           StatusNotifier.Item.Notifications.GitHub
 import           StatusNotifier.Item.Notifications.Util
 import qualified StatusNotifier.Watcher.Client as W
 import           System.Log.Logger
