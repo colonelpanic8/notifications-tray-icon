@@ -11,6 +11,7 @@ import           Data.Version (showVersion)
 import qualified GitHub.Auth as GH
 import           Options.Applicative
 import           StatusNotifier.Item.Notifications.GitHub
+import           StatusNotifier.Item.Notifications.Gmail
 import           StatusNotifier.Item.Notifications.OverlayIcon
 import           StatusNotifier.Item.Notifications.Util
 import           System.Console.Haskeline
@@ -117,8 +118,41 @@ githubParser = fmap <$> helper <*> githubAuthParser
             <> metavar "SECONDS"
             )
 
+gmailCliParser :: Parser (IO GmailConfig)
+gmailCliParser = buildConfig <$> clientIdOption <*> clientSecretOption
+                             <*> optional tokenFileOption <*> gmailPollIntervalOption
+  where
+    buildConfig cid secret tokenFile interval = return $ GmailConfig
+      { gmailClientId = T.pack cid
+      , gmailClientSecret = T.pack secret
+      , gmailTokenFile = tokenFile
+      , gmailRefreshSeconds = interval
+      }
+    clientIdOption = strOption
+      (  long "gmail-client-id"
+      <> metavar "CLIENT_ID"
+      <> help "Google OAuth2 client ID for Gmail API"
+      )
+    clientSecretOption = strOption
+      (  long "gmail-client-secret"
+      <> metavar "CLIENT_SECRET"
+      <> help "Google OAuth2 client secret for Gmail API"
+      )
+    tokenFileOption = strOption
+      (  long "gmail-token-file"
+      <> metavar "PATH"
+      <> help "Path to store Gmail OAuth token (default: XDG config dir)"
+      )
+    gmailPollIntervalOption = option auto
+      (  long "gmail-poll-interval"
+      <> help "Seconds between Gmail checks"
+      <> value 30
+      <> metavar "SECONDS"
+      )
+
 updaterParser
   =   (fmap githubUpdaterNew <$> githubParser)
+  <|> (fmap gmailUpdaterNew <$> gmailCliParser)
   <|> (flag' (return $ sampleUpdater ) $ long "sample")
 
 logParser =
