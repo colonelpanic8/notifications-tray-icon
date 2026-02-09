@@ -1,5 +1,6 @@
 {-# LANGUAGE DisambiguateRecordFields #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -35,7 +36,6 @@ import           Gogol.Auth
                    ( OAuthClient(..)
                    , OAuthCode(..)
                    , Credentials(..)
-                   , AuthorizedUser(..)
                    , ClientId(..)
                    , GSecret(..)
                    , installedApplication
@@ -44,6 +44,7 @@ import           Gogol.Auth
                    , saveAuthorizedUser
                    , fromFilePath
                    )
+import           Gogol.Internal.Auth (AuthorizedUser)
 import           Gogol.Auth.InstalledApplication (AccessType(..), formAccessTypeURL)
 import           Gogol.Env (envStore)
 import           Gogol.Gmail
@@ -162,11 +163,11 @@ setupGmailEnv config@GmailConfig{..} = do
 -- | Extract a header value by name from a Message's payload headers.
 getHeader :: T.Text -> Message -> Maybe T.Text
 getHeader headerName msg = do
-  part <- payload (msg :: Message)
-  hdrs <- headers (part :: MessagePart)
-  let matching = filter (\h -> name (h :: MessagePartHeader) == Just headerName) hdrs
+  part <- msg.payload
+  hdrs <- part.headers
+  let matching = filter (\h -> h.name == Just headerName) hdrs
   case matching of
-    (h:_) -> value (h :: MessagePartHeader)
+    (h:_) -> h.value
     []    -> Nothing
 
 -- | Build a MessageSummary from a full Message response.
@@ -175,7 +176,7 @@ getMessageSummary msg = do
   msgId <- messageId msg
   let sender  = fromMaybe "(unknown)" $ getHeader "From" msg
       subject = fromMaybe "(no subject)" $ getHeader "Subject" msg
-      snip    = fromMaybe "" $ snippet (msg :: Message)
+      snip    = fromMaybe "" msg.snippet
   return MessageSummary
     { msId      = msgId
     , msSender  = sender
@@ -254,7 +255,7 @@ gmailUpdaterNew config update = do
                 , maxResults = 50
                 }
           listResp <- send env listReq
-          let msgStubs = fromMaybe [] $ messages (listResp :: ListMessagesResponse)
+          let msgStubs = fromMaybe [] listResp.messages
               msgIds   = mapMaybe (\m -> messageId m) msgStubs
           forM msgIds $ \mid' -> do
             let getReq = (newGmailUsersMessagesGet mid')

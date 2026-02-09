@@ -62,7 +62,7 @@ buildOverlayIcon OverlayIconParams
   context <- GLib.mainLoopGetContext mainLoop
 
   let runOnMain action =
-        GLib.mainContextInvokeFull context 4 $ action >> return False
+        GLib.mainContextInvokeFull (Just context) 4 $ action >> return False
       setRoot newRoot = runOnMain $ do
           overlayLog DEBUG "Setting new root"
           modifyMVar_ currentRoot $ const $ return newRoot
