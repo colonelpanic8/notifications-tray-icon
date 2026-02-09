@@ -29,6 +29,8 @@ dependencies:
 
 default-extensions:
   - OverloadedStrings
+  - DataKinds
+  - TypeFamilies
 
 library:
   source-dirs: src
@@ -43,6 +45,7 @@ library:
     - gi-glib
     - github >= 0.24
     - hslogger
+    - http-client
     - http-conduit
     - http-types
     - process
@@ -51,6 +54,13 @@ library:
     - text
     - transformers >= 0.3.0.0
     - vector
+    - gogol >= 1.0
+    - gogol-gmail >= 1.0
+    - directory
+    - resourcet
+    - mtl
+    - filepath
+    - network
 
 executables:
   notifications-tray-icon:
@@ -71,3 +81,4 @@ executables:
       - text
       - transformers
       - tuple
+      - directory
