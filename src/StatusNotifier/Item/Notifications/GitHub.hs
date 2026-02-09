@@ -172,16 +172,18 @@ getOAuthHeader (OAuth token)             = [("Authorization", "token " <> token)
 getOAuthHeader _                         = []
 
 openNotificationHTML :: Auth -> Notification -> IO ()
-openNotificationHTML auth notification = do
-  let myHeaders = getOAuthHeader auth
-        <> [("User-Agent", "TaffyBar-GithubNotifier")]
-        <> [("Accept", "application/json")]
-      request = setRequestHeaders myHeaders $ parseRequest_ $ T.unpack $ getUrl $
-                subjectURL $ notificationSubject notification
-  response <- httpLBS request
-  ghLog DEBUG $ printf "Got response from subject url: %s" $ show response
-  let maybeUrl = getHTMLURL $ getResponseBody response
-  sequence_ $ openURL . T.unpack <$> maybeUrl
+openNotificationHTML auth notification =
+  case subjectURL $ notificationSubject notification of
+    Nothing -> ghLog WARNING "Notification has no subject URL"
+    Just url -> do
+      let myHeaders = getOAuthHeader auth
+            <> [("User-Agent", "TaffyBar-GithubNotifier")]
+            <> [("Accept", "application/json")]
+          request = setRequestHeaders myHeaders $ parseRequest_ $ T.unpack $ getUrl url
+      response <- httpLBS request
+      ghLog DEBUG $ printf "Got response from subject url: %s" $ show response
+      let maybeUrl = getHTMLURL $ getResponseBody response
+      sequence_ $ openURL . T.unpack <$> maybeUrl
 
 getHTMLURL :: LBS.ByteString -> Maybe T.Text
 getHTMLURL jsonText = decode jsonText >>= parseMaybe (.: "html_url")
