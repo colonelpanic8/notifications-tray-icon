@@ -54,10 +54,11 @@ library
     , gogol >=1.0
     , gogol-gmail >=1.0
     , hslogger
+    , http-client
     , http-conduit
     , http-types
-    , lens
     , mtl
+    , network
     , process
     , regex-compat
     , resourcet

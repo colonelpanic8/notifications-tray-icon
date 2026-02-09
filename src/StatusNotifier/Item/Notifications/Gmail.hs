@@ -14,15 +14,16 @@ module StatusNotifier.Item.Notifications.Gmail
 import           Control.Concurrent
 import           Control.Concurrent.Async (race)
 import           Control.Concurrent.MVar as MV
-import           Control.Exception (SomeException, try)
-import           Control.Lens (view)
+import           Control.Exception (SomeException, bracket, try)
 import           Control.Monad
 import           Control.Monad.IO.Class
+import qualified Data.ByteString.Char8 as BS8
 import           Data.Either (isRight)
 import           Data.List (sort, (\\))
 import           Data.Maybe (fromMaybe, mapMaybe)
 import           Data.Proxy (Proxy(..))
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import           GI.Dbusmenu
 import           Gogol
                    ( Env
@@ -35,18 +36,22 @@ import           Gogol
 import           Gogol.Auth
                    ( OAuthClient(..)
                    , OAuthCode(..)
-                   , Credentials(..)
                    , ClientId(..)
                    , GSecret(..)
-                   , installedApplication
-                   , retrieveAuthFromStore
-                   , authToAuthorizedUser
                    , saveAuthorizedUser
                    , fromFilePath
                    )
-import           Gogol.Internal.Auth (AuthorizedUser)
-import           Gogol.Auth.InstalledApplication (AccessType(..), formAccessTypeURL)
-import           Gogol.Env (envStore)
+import           Gogol.Auth.Scope (KnownScopes(..), queryEncodeScopes)
+import           Gogol.Internal.Auth
+                   ( AuthorizedUser(..)
+                   , OAuthToken(..)
+                   , accountsURL
+                   , refreshRequest
+                   , textBody
+                   , tokenRequest
+                   )
+import qualified Gogol.Internal.Logger as GLogger
+import           Gogol.Prelude (toQueryParam)
 import           Gogol.Gmail
                    ( GmailUsersMessagesList(..)
                    , GmailUsersMessagesGet(..)
@@ -64,6 +69,9 @@ import           Gogol.Gmail
                    , newModifyMessageRequest
                    )
 import           Network.HTTP.Conduit (newManager, tlsManagerSettings)
+import qualified Network.HTTP.Client as Client
+import           Network.Socket
+import           Network.Socket.ByteString (recv, sendAll)
 import           StatusNotifier.Item.Notifications.Util
 import           System.Directory (createDirectoryIfMissing, doesFileExist, getXdgDirectory, XdgDirectory(..))
 import           System.FilePath ((</>))
@@ -113,12 +121,92 @@ getTokenFilePath GmailConfig{..} =
       createDirectoryIfMissing True dir
       return $ dir </> "gmail-token.json"
 
+-- | Build an OAuth2 authorization URL with a loopback redirect URI.
+loopbackAuthURL :: OAuthClient -> Int -> T.Text
+loopbackAuthURL client port =
+  accountsURL
+  <> "?response_type=code"
+  <> "&client_id=" <> toQueryParam (_clientId client)
+  <> "&redirect_uri=" <> loopbackRedirectURI port
+  <> "&scope=" <> T.decodeUtf8 (queryEncodeScopes (scopeVals (Proxy :: Proxy '[Gmail'Modify])))
+  <> "&access_type=offline"
+
+loopbackRedirectURI :: Int -> T.Text
+loopbackRedirectURI port = "http://localhost:" <> T.pack (show port)
+
+-- | Exchange an authorization code for a token using the loopback redirect URI.
+exchangeCodeLoopback
+  :: OAuthClient -> OAuthCode s -> Int
+  -> GLogger.Logger
+  -> Client.Manager -> IO (OAuthToken s)
+exchangeCodeLoopback client code port =
+  refreshRequest $
+    tokenRequest
+      { Client.requestBody = textBody $
+          "grant_type=authorization_code"
+          <> "&client_id=" <> toQueryParam (_clientId client)
+          <> "&client_secret=" <> toQueryParam (_clientSecret client)
+          <> "&code=" <> toQueryParam code
+          <> "&redirect_uri=" <> loopbackRedirectURI port
+      }
+
+-- | Start a temporary HTTP server, wait for the OAuth redirect, extract the code.
+waitForOAuthRedirect :: Int -> IO T.Text
+waitForOAuthRedirect port = do
+  let hints = defaultHints { addrSocketType = Stream, addrFlags = [AI_PASSIVE] }
+  addr:_ <- getAddrInfo (Just hints) (Just "127.0.0.1") (Just $ show port)
+  bracket (openSocket addr) close $ \sock -> do
+    setSocketOption sock ReuseAddr 1
+    bind sock (addrAddress addr)
+    listen sock 1
+    (conn, _) <- accept sock
+    request <- recv conn 4096
+    let code = extractCodeFromRequest request
+        responseBody = case code of
+              Just _ -> "Authorization successful! You can close this window."
+              Nothing -> "Authorization failed. No code received."
+        response = BS8.unlines
+              [ "HTTP/1.1 200 OK"
+              , "Content-Type: text/plain"
+              , "Connection: close"
+              , ""
+              , responseBody
+              ]
+    sendAll conn response
+    close conn
+    case code of
+      Just c  -> return c
+      Nothing -> fail "No authorization code received in OAuth redirect"
+
+-- | Extract the 'code' query parameter from an HTTP GET request.
+extractCodeFromRequest :: BS8.ByteString -> Maybe T.Text
+extractCodeFromRequest req = do
+  firstLine <- case BS8.lines req of
+    (l:_) -> Just l
+    []    -> Nothing
+  -- Parse "GET /path?code=xxx&... HTTP/1.1"
+  path <- case BS8.words firstLine of
+    (_:p:_) -> Just p
+    _       -> Nothing
+  let query = BS8.dropWhile (/= '?') path
+      params = parseQueryParams (BS8.drop 1 query)  -- drop the '?'
+  lookup "code" params
+
+-- | Parse query parameters from a query string like "code=xxx&scope=yyy"
+parseQueryParams :: BS8.ByteString -> [(BS8.ByteString, T.Text)]
+parseQueryParams qs =
+  [ (key, T.decodeUtf8 val)
+  | part <- BS8.split '&' qs
+  , let (key, rest) = BS8.break (== '=') part
+        val = BS8.drop 1 rest  -- drop the '='
+  , not (BS8.null key)
+  ]
+
 -- | Set up a gogol Env for Gmail with Gmail'Modify scope.
 --
 -- If a saved token file exists, loads credentials from it.
--- Otherwise, runs the interactive OAuth2 Installed Application flow:
--- prints an authorization URL, prompts for the code, exchanges it,
--- and saves the resulting token.
+-- Otherwise, runs the OAuth2 loopback flow: opens the browser,
+-- captures the redirect on localhost, exchanges the code, and saves the token.
 setupGmailEnv :: GmailConfig -> IO (Env '[Gmail'Modify])
 setupGmailEnv config@GmailConfig{..} = do
   tokenPath <- getTokenFilePath config
@@ -131,34 +219,40 @@ setupGmailEnv config@GmailConfig{..} = do
         }
 
   exists <- doesFileExist tokenPath
-  creds <- if exists
+  if exists
     then do
       gmailLog INFO $ printf "Loading saved token from %s" tokenPath
-      fromFilePath tokenPath
+      creds <- fromFilePath tokenPath
+      newEnvWith creds lgr mgr
     else do
-      let authUrl = formAccessTypeURL client Offline (Proxy :: Proxy '[Gmail'Modify])
-      putStrLn "Please open the following URL in your browser to authorize:"
-      putStrLn $ T.unpack authUrl
-      putStr "Enter the authorization code: "
-      hFlush stdout
-      code <- getLine
-      let cred = installedApplication client (OAuthCode (T.pack code) :: OAuthCode '[Gmail'Modify])
-      return cred
+      let port = 8914
+          authUrl = loopbackAuthURL client port
+      gmailLog INFO "Starting OAuth2 loopback flow"
+      putStrLn "Opening browser for Gmail authorization..."
+      void $ xdgOpen [T.unpack authUrl]
+      putStrLn $ "Waiting for authorization redirect on port " ++ show port ++ "..."
+      code <- waitForOAuthRedirect port
+      gmailLog INFO "Authorization code received"
 
-  env <- newEnvWith creds lgr mgr
+      -- Exchange the code ourselves (with matching loopback redirect_uri)
+      token <- exchangeCodeLoopback client
+                 (OAuthCode code :: OAuthCode '[Gmail'Modify])
+                 port lgr mgr
 
-  -- After initial exchange, save the authorized user token for future use
-  when (not exists) $ do
-    let store = view envStore env
-    auth <- retrieveAuthFromStore store
-    case authToAuthorizedUser auth of
-      Right au -> do
-        saveAuthorizedUser tokenPath True au
-        gmailLog INFO $ printf "Token saved to %s" tokenPath
-      Left err ->
-        gmailLog WARNING $ printf "Could not save token: %s" (T.unpack err)
+      -- Build an AuthorizedUser from the exchange result and save it
+      let authorizedUser = AuthorizedUser
+            { _userId = _clientId client
+            , _userRefresh = case _tokenRefresh token of
+                Just r  -> r
+                Nothing -> error "OAuth token exchange did not return a refresh token"
+            , _userSecret = _clientSecret client
+            }
+      saveAuthorizedUser tokenPath True authorizedUser
+      gmailLog INFO $ printf "Token saved to %s" tokenPath
 
-  return env
+      -- Now load from the saved file to create the Env
+      creds <- fromFilePath tokenPath
+      newEnvWith creds lgr mgr
 
 -- | Extract a header value by name from a Message's payload headers.
 getHeader :: T.Text -> Message -> Maybe T.Text
