@@ -32,13 +32,14 @@ passGet :: (MonadFail m, MonadIO m) => String -> m (Either String (String, [(Str
 passGet credentialName =
   right (getPassComponents . lines) <$>
         runCommandFromPath ["pass", "show", credentialName]
-  where getPassComponents passLines =
+  where getPassComponents [] = ("", [])
+        getPassComponents (firstLine:restLines) =
           let entries =
                 map buildEntry $ catMaybes $
-                    matchRegex fieldRegex <$> tail passLines
+                    matchRegex fieldRegex <$> restLines
               buildEntry [fieldName, fieldValue] = (fieldName, fieldValue)
               buildEntry _ = ("", "")
-          in (head passLines, entries)
+          in (firstLine, entries)
 
 passGetMain :: (MonadFail m, MonadIO m) => String -> m String
 passGetMain name = do

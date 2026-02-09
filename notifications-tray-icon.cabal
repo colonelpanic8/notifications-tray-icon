@@ -18,6 +18,13 @@ build-type:     Simple
 extra-source-files:
     README.md
     ChangeLog.md
+data-files:
+    icons/hicolor/index.theme
+    icons/hicolor/scalable/apps/gitea.svg
+    icons/hicolor/scalable/apps/github.svg
+    icons/hicolor/scalable/apps/gmail.svg
+    icons/hicolor/scalable/apps/notification-indicator.svg
+data-dir:       data
 
 source-repository head
   type: git
@@ -26,6 +33,8 @@ source-repository head
 library
   exposed-modules:
       DBus.Proxy
+      Gitea.API
+      StatusNotifier.Item.Notifications.Gitea
       StatusNotifier.Item.Notifications.GitHub
       StatusNotifier.Item.Notifications.Gmail
       StatusNotifier.Item.Notifications.OverlayIcon
@@ -83,6 +92,7 @@ executable notifications-tray-icon
       base >=4.7 && <5
     , bytestring
     , directory
+    , filepath
     , github
     , haskeline
     , hslogger

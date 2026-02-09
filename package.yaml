@@ -19,6 +19,11 @@ extra-source-files:
 # common to point users to the README.md file.
 description:         Please see the README on GitHub at <https://github.com/IvanMalison/notifications-tray-icon#readme>
 
+data-dir: data
+data-files:
+  - icons/hicolor/index.theme
+  - icons/hicolor/scalable/apps/*.svg
+
 dependencies:
 - base >= 4.7 && < 5
 
@@ -67,6 +72,7 @@ executables:
       - -with-rtsopts=-N
     dependencies:
       - bytestring
+      - filepath
       - github
       - haskeline
       - hslogger

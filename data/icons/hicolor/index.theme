@@ -1,0 +1,10 @@
+[Icon Theme]
+Name=notifications-tray-icon
+Comment=Icons for notifications-tray-icon
+Directories=scalable/apps
+
+[scalable/apps]
+Size=48
+MinSize=16
+MaxSize=256
+Type=Scalable
