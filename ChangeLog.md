@@ -1,5 +1,9 @@
 # Changelog for notifications-tray-icon
 
+## 0.2.0.2
+
+- Fix polling threads silently dying on transient network errors
+
 ## 0.2.0.0
 
 - Add Gmail notification tray icon with browser-based OAuth2 loopback flow
