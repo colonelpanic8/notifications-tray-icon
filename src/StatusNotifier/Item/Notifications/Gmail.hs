@@ -307,8 +307,9 @@ makeGmailMenuItem env onMarkedRead summary@MessageSummary{..} = do
   -- Sub-items: mark as read & open in browser
   markReadItem <- makeMenuItemWithLabel "Mark as read"
   onMenuitemItemActivated markReadItem $ const $ void $ forkIO $ do
-    let modReq = (newModifyMessageRequest :: ModifyMessageRequest)
-          { removeLabelIds = Just ["UNREAD"]
+    let modReq = ModifyMessageRequest
+          { addLabelIds = Nothing
+          , removeLabelIds = Just ["UNREAD"]
           }
     result <- try $ runResourceT $ send env (newGmailUsersMessagesModify msId modReq)
     case (result :: Either SomeException Message) of
