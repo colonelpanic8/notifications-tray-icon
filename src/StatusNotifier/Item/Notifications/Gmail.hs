@@ -56,6 +56,8 @@ import           Gogol.Gmail
                    ( GmailUsersMessagesList(..)
                    , GmailUsersMessagesGet(..)
                    , GmailUsersMessagesModify(..)
+                   , GmailUsersMessagesBatchModify(..)
+                   , BatchModifyMessagesRequest(..)
                    , ListMessagesResponse(..)
                    , Message(..)
                    , MessagePart(..)
@@ -66,6 +68,8 @@ import           Gogol.Gmail
                    , newGmailUsersMessagesList
                    , newGmailUsersMessagesGet
                    , newGmailUsersMessagesModify
+                   , newGmailUsersMessagesBatchModify
+                   , newBatchModifyMessagesRequest
                    , newModifyMessageRequest
                    )
 import           Network.HTTP.Conduit (newManager, tlsManagerSettings)
@@ -303,7 +307,7 @@ makeGmailMenuItem env onMarkedRead summary@MessageSummary{..} = do
   -- Sub-items: mark as read & open in browser
   markReadItem <- makeMenuItemWithLabel "Mark as read"
   onMenuitemItemActivated markReadItem $ const $ void $ forkIO $ do
-    let modReq = newModifyMessageRequest
+    let modReq = (newModifyMessageRequest :: ModifyMessageRequest)
           { removeLabelIds = Just ["UNREAD"]
           }
     result <- try $ runResourceT $ send env (newGmailUsersMessagesModify msId modReq)
@@ -371,6 +375,22 @@ gmailUpdaterNew config update = do
         separatorItem <- menuitemNew
         menuitemPropertySet separatorItem MENUITEM_PROP_TYPE CLIENT_TYPES_SEPARATOR
         menuitemChildAppend root separatorItem
+
+        markAllReadItem <- makeMenuItemWithLabel "Mark all as read"
+        onMenuitemItemActivated markAllReadItem $ const $ void $ forkIO $ do
+          ids <- map msId <$> getCurrentSummaries
+          unless (null ids) $ do
+            let batchReq = newBatchModifyMessagesRequest
+                  { ids = Just ids
+                  , removeLabelIds = Just ["UNREAD"]
+                  }
+            result <- try $ runResourceT $ send env (newGmailUsersMessagesBatchModify batchReq)
+            case (result :: Either SomeException ()) of
+              Right () -> do
+                gmailLog DEBUG "Marked all messages as read"
+                delayedRefresh
+              Left err -> gmailLog ERROR $ printf "Failed to mark all as read: %s" (show err)
+        menuitemChildAppend root markAllReadItem
 
         openInboxItem <- makeMenuItemWithLabel "Open Gmail"
         onMenuitemItemActivated openInboxItem $ const $
