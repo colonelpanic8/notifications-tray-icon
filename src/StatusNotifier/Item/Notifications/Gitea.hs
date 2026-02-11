@@ -3,6 +3,7 @@ module StatusNotifier.Item.Notifications.Gitea where
 import           Control.Concurrent
 import           Control.Concurrent.Async
 import           Control.Concurrent.MVar as MV
+import           Control.Exception (SomeException, try)
 import           Control.Monad
 import           Data.Either
 import           Data.List
@@ -92,15 +93,19 @@ giteaUpdaterNew GiteaUpdaterConfig
   void updateVariables
   doUpdate
   void $ forkIO $ forever $ do
-    forced <-
-      isRight <$> race (threadDelay (floor $ refreshSeconds * 1000000))
-                       (takeMVar forceRefreshVar)
-    giteaLog DEBUG "Refreshing notifications"
-    (menuNeedsRebuild, newIds) <- updateVariables
-    sendNotifications newIds
-    giteaLog DEBUG $ printf "Rebuild needed: %s, force: %s"
-                         (show menuNeedsRebuild) (show forced)
-    when (forced || menuNeedsRebuild) doUpdate
+    result <- try $ do
+      forced <-
+        isRight <$> race (threadDelay (floor $ refreshSeconds * 1000000))
+                         (takeMVar forceRefreshVar)
+      giteaLog DEBUG "Refreshing notifications"
+      (menuNeedsRebuild, newIds) <- updateVariables
+      sendNotifications newIds
+      giteaLog DEBUG $ printf "Rebuild needed: %s, force: %s"
+                           (show menuNeedsRebuild) (show forced)
+      when (forced || menuNeedsRebuild) doUpdate
+    case (result :: Either SomeException ()) of
+      Right () -> return ()
+      Left err -> giteaLog ERROR $ printf "Exception in polling loop: %s" (show err)
 
 makeGiteaNotificationItem :: GiteaConfig -> GiteaNotification -> IO Menuitem
 makeGiteaNotificationItem config notification = do

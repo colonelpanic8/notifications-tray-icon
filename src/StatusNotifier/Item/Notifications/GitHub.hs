@@ -4,6 +4,7 @@ import           Control.Arrow
 import           Control.Concurrent
 import           Control.Concurrent.Async
 import           Control.Concurrent.MVar as MV
+import           Control.Exception (SomeException, try)
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
@@ -121,15 +122,19 @@ githubUpdaterNew config@GitHubConfig
   void updateVariables
   doUpdate
   void $ forkIO $ forever $ do
-    forced <-
-      isRight <$> race (threadDelay (floor $ refreshSeconds * 1000000))
-                       (takeMVar forceRefreshVar)
-    ghLog DEBUG "Refreshing notifications"
-    (menuNeedsRebuild, newIds) <- updateVariables
-    sendNotifications newIds
-    ghLog DEBUG $ printf "Rebuild needed: %s, force: %s"
-                         (show menuNeedsRebuild) (show forced)
-    when (forced || menuNeedsRebuild) doUpdate
+    result <- try $ do
+      forced <-
+        isRight <$> race (threadDelay (floor $ refreshSeconds * 1000000))
+                         (takeMVar forceRefreshVar)
+      ghLog DEBUG "Refreshing notifications"
+      (menuNeedsRebuild, newIds) <- updateVariables
+      sendNotifications newIds
+      ghLog DEBUG $ printf "Rebuild needed: %s, force: %s"
+                           (show menuNeedsRebuild) (show forced)
+      when (forced || menuNeedsRebuild) doUpdate
+    case (result :: Either SomeException ()) of
+      Right () -> return ()
+      Left err -> ghLog ERROR $ printf "Exception in polling loop: %s" (show err)
 
 makeNotificationItem :: GitHubConfig -> Notification -> IO Menuitem
 makeNotificationItem GitHubConfig { ghAuth = auth }

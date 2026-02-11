@@ -428,12 +428,16 @@ gmailUpdaterNew config update = do
 
   -- Polling loop
   void $ forkIO $ forever $ do
-    forced <-
-      isRight <$> race (threadDelay (floor $ refreshSeconds * 1000000))
-                       (takeMVar forceRefreshVar)
-    gmailLog DEBUG "Refreshing Gmail notifications"
-    (menuNeedsRebuild, newIds) <- updateVariables
-    sendNotifications newIds
-    gmailLog DEBUG $ printf "Gmail rebuild needed: %s, force: %s"
-                            (show menuNeedsRebuild) (show forced)
-    when (forced || menuNeedsRebuild) doUpdate
+    result <- try $ do
+      forced <-
+        isRight <$> race (threadDelay (floor $ refreshSeconds * 1000000))
+                         (takeMVar forceRefreshVar)
+      gmailLog DEBUG "Refreshing Gmail notifications"
+      (menuNeedsRebuild, newIds) <- updateVariables
+      sendNotifications newIds
+      gmailLog DEBUG $ printf "Gmail rebuild needed: %s, force: %s"
+                              (show menuNeedsRebuild) (show forced)
+      when (forced || menuNeedsRebuild) doUpdate
+    case (result :: Either SomeException ()) of
+      Right () -> return ()
+      Left err -> gmailLog ERROR $ printf "Exception in polling loop: %s" (show err)
